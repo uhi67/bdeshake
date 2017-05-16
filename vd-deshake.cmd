@@ -14,9 +14,27 @@ exit
 
 Deshakes one file or files of a directory to the same directory with .ds.mp4 name extension
 
+## Prerequistics ##
+
+0. Windows 7 or newer
+1. install virtualdub
+2. install deshaker plugin -- see http://www.guthspot.se/video/deshaker.htm
+3. install ffmpeg
+
+## Installation ##
+
+1. Save this single file to anywhere in your windows machine.
+2. Edit global setting below:
+	(a) ffmpegbase is the path to the installed ffmpeg
+	(b) commandbase is the path to the installed virtualdub
+	(c) change any other settings if you want
+3. Review extensions and template files (if you know virtualdub scripting)
+	
 ## Using ##
 
- vd-deshake.js filename [-t] [-o]
+ bdeshake.cmd filename [-t] [-o]
+ 
+... or simply drop a directory to the script for default batch process.
 
 Skips existing output files, unless -o switch specified.
 creates %filename%.ds.jobs temp file
