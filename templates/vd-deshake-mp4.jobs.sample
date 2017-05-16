@@ -1,0 +1,64 @@
+// VirtualDub script - deshaker - mp4
+
+declare deshaker;
+VirtualDub.Open("%filename0%","",0);
+VirtualDub.audio.SetSource(1);
+VirtualDub.audio.SetMode(0);
+VirtualDub.audio.SetInterleave(1,500,1,0,0);
+VirtualDub.audio.SetClipMode(1,1);
+VirtualDub.audio.SetEditMode(1);
+VirtualDub.audio.SetConversion(0,0,0,0,0);
+VirtualDub.audio.SetVolume();
+VirtualDub.audio.SetCompression();
+VirtualDub.audio.EnableFilterGraph(0);
+VirtualDub.video.SetInputFormat(0);
+//VirtualDub.video.SetOutputFormat(7);
+VirtualDub.video.SetMode(3);
+VirtualDub.video.SetSmartRendering(0);
+VirtualDub.video.SetPreserveEmptyFrames(0);
+VirtualDub.video.SetFrameRate2(0,0,1);
+VirtualDub.video.SetIVTC(0, 0, 0, 0);
+VirtualDub.video.SetCompression();
+VirtualDub.video.filters.Clear();
+deshaker = VirtualDub.video.filters.Add("Deshaker v3.1");
+VirtualDub.video.filters.instance[deshaker].Config("19|1|30|4|1|0|1|0|640|480|0|1|1500|2500|1000|1000|14|1|1|2|8|25|300|4|%filename0%.ds.log|0|1|250|250|120|120|0|0|0|0|0|0|0|1|25|25|5|5|1|1|20|20|0|21|0|0|1|0|1|0|500|1|75|1|1|20|5000|80|20|1|0|ff00ff");
+VirtualDub.audio.filters.Clear();
+VirtualDub.subset.Clear();
+VirtualDub.subset.AddRange(0,10051);
+VirtualDub.video.SetRange();
+VirtualDub.project.ClearTextInfo();
+// -- $reloadstop --
+VirtualDub.RunNullVideoPass();
+VirtualDub.audio.SetSource(1);
+VirtualDub.Close();
+
+VirtualDub.Open("%filename0%","",0);
+VirtualDub.audio.SetSource(1);
+VirtualDub.audio.SetMode(0);
+VirtualDub.audio.SetInterleave(1,500,1,0,0);
+VirtualDub.audio.SetClipMode(1,1);
+VirtualDub.audio.SetEditMode(1);
+VirtualDub.audio.SetConversion(0,0,0,0,0);
+VirtualDub.audio.SetVolume();
+VirtualDub.audio.SetCompression();
+VirtualDub.audio.EnableFilterGraph(0);
+VirtualDub.video.SetInputFormat(0);
+VirtualDub.video.SetOutputFormat(7);
+VirtualDub.video.SetMode(3);
+VirtualDub.video.SetSmartRendering(0);
+VirtualDub.video.SetPreserveEmptyFrames(0);
+VirtualDub.video.SetFrameRate2(0,0,1);
+VirtualDub.video.SetIVTC(0, 0, 0, 0);
+VirtualDub.video.SetCompression();
+VirtualDub.video.filters.Clear();
+deshaker = VirtualDub.video.filters.Add("Deshaker v3.1");
+VirtualDub.video.filters.instance[deshaker].Config("19|2|30|4|1|0|1|0|640|480|0|1|1500|2500|1000|1000|14|1|1|2|8|25|300|4|%filename0%.ds.log|0|1|250|250|120|120|0|0|0|0|0|0|0|1|25|25|5|5|1|1|20|20|0|21|0|0|1|0|1|0|500|1|75|1|1|20|5000|80|20|1|0|ff00ff");
+VirtualDub.audio.filters.Clear();
+VirtualDub.subset.Clear();
+VirtualDub.subset.AddRange(0,1583);
+VirtualDub.video.SetRange();
+VirtualDub.project.ClearTextInfo();
+// -- $reloadstop --
+VirtualDub.ExportViaEncoderSet("%filename0%.ds.mp4", "MP4 (video/audio)");
+VirtualDub.audio.SetSource(1);
+VirtualDub.Close();
