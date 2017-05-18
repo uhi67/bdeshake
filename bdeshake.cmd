@@ -2,8 +2,9 @@ rem /*
 :: Batch deshaker
 :: Author: Peter Uherkovich
 :: Revision: 2017-05-16
-:: See documentation below
-:: This batch file calls itself as javascript -- see js part below
+:: See embedded documentation below
+:: This batch file calls itself as jscript -- see js part below
+:: This file contains embedded configutration template files at the end
 @echo off
 echo Batch deshaker v1.0
 cscript //E:jscript %~dp0\%~nx0 %1 %2 %3
@@ -69,8 +70,14 @@ Default removes temp files created.
 - avi does not work
 - PAL Wide is converting to 4:3
 
+## External references ##
+[http://virtualdub.org/]
+[http://www.virtualdub.org/docs/vdscript.txt]
+[http://www.guthspot.se/video/deshaker.htm]
+[http://forum.videohelp.com/threads/367446-Virtualdub-External-Encoder-feature]
+
 :: =================================================================================================
-:: Javascript part */ = 0;
+:: jscript part */ = 0;
 
 // Global settings
 // Set path of ffmpeg, eg. "c:\\progs\\Video Encoders\\FFmpeg\\64-bit"
