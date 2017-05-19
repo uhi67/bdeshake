@@ -7,7 +7,7 @@ rem /*
 :: This file contains embedded configutration template files at the end
 @echo off
 echo Batch deshaker v1.0
-cscript //E:jscript %~dp0\%~nx0 %1 %2 %3
+cscript //E:jscript %~dp0\%~nx0 %1 %2 %3 %4 %5 %6 %7 %8 %9
 pause
 exit
 :: =================================================================================================
@@ -57,11 +57,16 @@ uses jobs template files in priority order:
 Creates %inputpath%\%filename%.ds.log file
 Runs "...\VirtualDub\Veedub64.exe" /s %filename%.ds.jobs /x
 Returns only when finished
-Default removes temp files created.
+Default removes all temp files created.
+
+If you close the termianl window before the end of processing all files, the ongoing processes will 
+continue and close when finished, but no more new process will start.
+
+If you close manually the ongoing processes, the result may be some damaged output file.
 
 ## Options ## 
 
--t	do not delete temp files (default delete at end)
+-t	do not delete temp files (default will be deleted at end)
 -o	overwrite existing files (default skip)
 -p <#>	number of paralel processes (default 4)
 -s <index> <value>	user settings of plugin. See doc at http://www.guthspot.se/video/deshaker.htm
@@ -79,7 +84,7 @@ Default removes temp files created.
 :: =================================================================================================
 :: jscript part */ = 0;
 
-// Global settings
+/** Global settings */
 // Set path of ffmpeg, eg. "c:\\progs\\Video Encoders\\FFmpeg\\64-bit"
 var ffmpegbase = "c:\\progs\\Video Encoders\\FFmpeg\\64-bit";	// directory of "ffmpeg.exe" and "is-interlaced.js" filter script
 var scriptdir = scriptdir = WScript.ScriptFullName.substring(0,WScript.ScriptFullName.lastIndexOf(WScript.ScriptName)-1);
@@ -100,6 +105,7 @@ Array.prototype.indexOf = function(value) {
 // Default values
 var fdeltemp = 1;
 var foverwrite = 0;
+var fdebug = 0;
 
 // Global objects and constants
 var ForReading = 1;
@@ -108,17 +114,18 @@ var fso = new ActiveXObject("Scripting.FileSystemObject");
 var WshShell = new ActiveXObject("WScript.Shell");
 
 // Statistics
-var num = 0;	// ténylegesen feldolgozott fájlok száma
-var sum = 0;	// kbyte/s (avg = sum/num)
-var numfiles = 1; // összes feldolgozandó fájlok száma (tehát nem számítva a bármilyen okból kihagyottakat))
-var sumfiles = 0; // összes feldolgozandó fájlok összes mérete (byte) 
-var ready = 0;		// feldolgozott bájtok száma
-var lastsum = new Date(); // utolsó összegzés ideje
+var num = 0;				// Number of processed files so far
+var sum = 0;				// kbyte/s (avg = sum/num)
+var numfiles = 1; 			// Number of files (including skipped ones)
+var sumfiles = 0; 			// Sum of sizes of all files to process
+var ready = 0;				// Processed bytes so far
+var lastsum = new Date();	// Last time of summary
 var starttime = lastsum; 
-var existingfile = 0;	// Már kész fájl
+var existingfile = 0;		// Files ready
 
 // Determine input file
 if(WScript.Arguments.length<1) {
+	Console.ForegroundColor(1);
 	WScript.Echo("Using:");
 	WScript.Echo("---------------------------------------");
 	WScript.Echo(" Drop file or directory to this script");
@@ -135,31 +142,40 @@ if(WScript.Arguments.length<1) {
 	WScript.Echo(" -t	do not delete temp files");
 	WScript.Echo(" -o	overwrite existing files");
 	WScript.Echo(" -p <#>	number of paralel processes (default 4)");
-	WScript.Echo(" -s <index> <value>	user settings of plugin. See doc at http://www.guthspot.se/video/deshaker.htm");
+	WScript.Echo(" -d 	show debug info");
+	WScript.Echo(" -s <index>=<value>,...	user settings of plugin. See doc at http://www.guthspot.se/video/deshaker.htm");
 	WScript.Quit(1);
 }
 
 var filename = WScript.Arguments.Item(0);
+/** {array} Array of user settings [index, value] elements */
 var user_settings = [];
 
 // Determine options
 for(var i=1;i<WScript.Arguments.length;i++) {
 	if(WScript.Arguments.Item(i)=='-t') fdeltemp = 0;
 	if(WScript.Arguments.Item(i)=='-o') foverwrite = 1;
+	if(WScript.Arguments.Item(i)=='-d') fdebug = 1;
 	if(WScript.Arguments.Item(i)=='-p') {
 		if(++i >= WScript.Arguments.length) break;
 		ps = parseInt(WScript.Arguments.Item(i));
 	}
 	if(WScript.Arguments.Item(i)=='-s') {
+		/*
 		if(++i >= WScript.Arguments.length) break;
 		var index = parseInt(WScript.Arguments.Item(i));
+		*/
 		if(++i >= WScript.Arguments.length) break;
-		var value = parseInt(WScript.Arguments.Item(i));
-		user_settings.push([index, value]);
+		var values = parseInt(WScript.Arguments.Item(i));
+		var valuelist = values.split(',');
+		for(var j=0;j<valuelist.length;j++) {
+			var iv = valuelist[j].split('=');
+			user_settings.push([iv[0], iv[1]]);
+		}
 	}
 }
 
-WScript.Echo("Using template directory " + templatefolder);
+if(fdebug) WScript.Echo("Using template directory " + templatefolder);
 
 // Check and initialize template directory
 if(!fso.FolderExists(templatefolder)) {
@@ -202,9 +218,9 @@ if(fso.FolderExists(filename)) {
     WScript.Echo("Number of files: "+numfiles+", "+Math.floor(sumfiles/1000)+" kbytes.");
     WScript.Echo("Number of ready files: "+existingfile+".");
     
-	// Feldolgozási ciklus
+	// File processing loop
     fc.moveFirst();
-    var processes = new Array(ps); // [[ps,name,start],...] 
+    var processes = new Array(ps); // [[ps,name,start,size],...] 
     for(;!fc.atEnd(); fc.moveNext()) {
     	var filename1 = fc.item().Name;
         var ext = fso.GetExtensionName(filename1).toLowerCase();
@@ -233,7 +249,7 @@ if(fso.FolderExists(filename)) {
     // Waiting for finish all process
     waitForFinish(processes);
 	showStatus(processes);
-    WScript.Echo("Folder process completed.\n");
+    if(fdebug) WScript.Echo("Folder process completed.\n");
 	WScript.Quit(0);
 } 
 
@@ -248,18 +264,21 @@ var oExec = deshake_file(filename, templatefolder, fdeltemp, foverwrite);
 // wait for complete
 if(oExec) while(oExec.Status == WshRunning) WScript.Sleep(100);
 WScript.Echo("File "+filename+" finished.");
-// TODO: delete temp files
+// delete temp files
 if(fdeltemp) {
     var logfilename = filename + '.ds.log';
     var jobfilename = filename + ".ds.jobs";
-    WScript.Echo("Delete temp files (.log, .jobs)");
+    if(fdebug) WScript.Echo("Delete temp files (.log, .jobs)");
     fso.DeleteFile(logfilename);
     fso.DeleteFile(jobfilename);
 }
+WScript.Quit(0);
 
-
+/**
+ * Reports progress on terminal
+ * @param {array} processes
+ */
 function showStatus(processes) {
-    // Státuszjelentés
     if(numRun(processes)>0) {
 	    WScript.Echo("\nCurrently running:");
 	    for(var i=0;i<processes.length;i++) {
@@ -292,9 +311,11 @@ function showStatus(processes) {
 	else WScript.Echo("");
 }
 
-/*
- *  Visszaadja a process tömb első üres elemét.
- *  Ha nincs, vár egy processs befejezéséig
+/**
+ * Returns first free index of processes array
+ * If no any free element, waits for one
+ * @param {array} processes
+ * @returns {int}
  */
 function waitForFree(processes) {
     var s = 0;
@@ -308,8 +329,10 @@ function waitForFree(processes) {
     return f;
 }
 
-/*
- *  Vár az összes process befejezéséig
+/**
+ * Waits for finishing all ongoing processes
+ * @param {array} processes
+ * @returns void
  */
 function waitForFinish(processes) {
     var s = 0;
@@ -323,8 +346,10 @@ function waitForFinish(processes) {
 	}
 }
 
-/*
- *	Futó processzek száma
+/**
+ * Number of running processes
+ * @param {array} processes
+ * @returns {int}
  */
 function numRun(processes) {
 	var n = 0;
@@ -333,7 +358,7 @@ function numRun(processes) {
         if(p===null) continue;
         if(p[0].Status == WshRunning) n++;
         else {
-        	// Befejeződött processzt törölni és jelenteni kell
+        	// Finished process must be reported and deleted
         	finishProcess(p);
             processes[i] = null;
         }
@@ -341,10 +366,11 @@ function numRun(processes) {
     return n;
 }
 
-/*
- * Visszaadja a process tömb első üres vagy már nem futó indexét
- * Mindenképpen végigmegy a tömbön, és a közben leállt processzeket zárja.
- *  -1, ha nincs üres eleme
+/**
+ * Finds first epmty or stopped process in processes array.
+ * Meanwhile, reports and deletes stopped processes.
+ * @param {array} processes
+ * @returns {int} -- The index of first free slot. Returns -1 if not found.
 */
 function firstFree(processes) {
 	var r = -1;
@@ -360,33 +386,44 @@ function firstFree(processes) {
     return r;
 }
 
-/*
- * Jelenti a processz befeződését és gyűjti a statisztikát
+/**
+ * Reports finishing of a process and collects statistics
+ * @param {array} process: [0]=status, [1]=filename, [2]=start_time [3]=file_size
  */
 function finishProcess(p) {
-   	// Befejezés jelentés
+   	// Reports finishing of a process
     var now = new Date();
 	var elapsed = ((now - p[2]) + 1)/1000; // s
-	var speed = Math.floor(parseInt(p[3]) / elapsed); // záródó fájl sebessége, byte/s
-	WScript.Echo("\nFile " + p[1]+ " has been finished in "+elapsed+" seconds ("+(speed/1000)+" kbyte/s)");
+	var speed = Math.floor(parseInt(p[3]) / elapsed); 	// Speed of closing file, byte/s
+	var filename = p[1];
+	WScript.Echo("\nFile " + filename + " has been finished in "+elapsed+" seconds ("+(speed/1000)+" kbyte/s)");
 	
-	// Statisztika gyűjtés
-	sum += speed;  	// Aggregált byte/s
-	num++;			// Feldolgozott fájlok száma
-	ready += parseInt(p[3]); // Feldolgozott bytok száma
+	// Collects statistics
+	sum += speed;  			// Aggregated byte/s
+	num++;					// Number of processed files
+	ready += parseInt(p[3]); // Sum of processed bytes
     lastsum = now;
+	
+	// Deletes temp files
+	if(fdeltemp) {
+		var logfilename = filename + '.ds.log';
+		var jobfilename = filename + ".ds.jobs";
+		if(fdebug) WScript.Echo("Delete temp files "+jobfilename+". "+logfilename);
+		fso.DeleteFile(logfilename);
+		fso.DeleteFile(jobfilename);
+	}
 }
 
-/*
+/**
  *  Deshakes a file
  *  Uses template file based on file extension, or the default.
  *	If none of above template file found, stops with error
  *
- *  @param filename
- *  @param templatefolder -- directory of template files (.jobs.sample)
- *  @param fdeltemp -- 1=deletes temporary files
- *  @param foverwrite -- 1=overwrites existing output files
- *  @return process identifier or null
+ *  @param {string} filename
+ *  @param {string} templatefolder -- directory of template files (.jobs.sample)
+ *  @param {int} fdeltemp -- 1=deletes temporary files
+ *  @param {int} foverwrite -- 1=overwrites existing output files
+ *  @return {int|null} -- process identifier or null if skipping file
  */
 function deshake_file(filename, templatefolder, fdeltemp, foverwrite) {
     var ext = fso.GetExtensionName(filename).toLowerCase();
@@ -434,7 +471,7 @@ function deshake_file(filename, templatefolder, fdeltemp, foverwrite) {
     	WScript.Echo("Sample file " + samplefilename + " does not exist. ("+ext+","+intl+")");
     	WScript.Quit(3);
     }
-    WScript.Echo("Using samplefile " + samplefilename);
+    if(fdebug) WScript.Echo("Using samplefile " + samplefilename);
 
     // Creates jobfile from sample file
     var samplefile = fso.GetFile(samplefilename);
@@ -454,14 +491,14 @@ function deshake_file(filename, templatefolder, fdeltemp, foverwrite) {
 		if(settings_match) {
 			var pluginindex = settings_match[1];
 			var settings = settings_match[2];
-			WScript.Echo("\nOriginal settings: " + settings+ "\n");
+			if(fdebug) WScript.Echo("\nOriginal settings: " + settings+ "\n");
 			sx = settings.split('|');
 			if(user_settings.length) {
 				for(var j=0;j<user_settings.length;j++) {
 					sx[user_settings[j][0]-1] = user_settings[j][1];
 				}
 				settings = sx.join('|');
-				WScript.Echo("Modified settings: " + settings+ "\n");
+				if(fdebug) WScript.Echo("Modified settings: " + settings+ "\n");
 				sample[i] = sample[i].replace(settings_re, 'VirtualDub.video.filters.instance[$1].Config("'+settings+'");');
 			}
 		}
@@ -473,24 +510,23 @@ function deshake_file(filename, templatefolder, fdeltemp, foverwrite) {
     // Running job
     var command = commandbase + jobfilename +" /x";
     WScript.Echo("\nDeshaking file " + filename);
-    //WScript.Echo(command);
+    if(fdebug) WScript.Echo(command);
     var oExec = WshShell.Exec(command);
     return oExec;    
 }
 
-/*
+/**
  * Determines interlace status of ffmpeg output
  * ffmpeg -i %1 -filter:v idet -frames:v 100 -an -f rawvideo -y NUL 2>&1 | cscript is-interlaced.js
  * 
- * @param strm TextStream -- output of ffmpeg 
- * @returns string -- bff/tff/pro/und
+ * @param {TextStream} strm -- output of ffmpeg 
+ * @returns {string} -- bff/tff/pro/und
  */
 function is_interlaced(strm) {
 	var tff = 0;
 	var bff = 0;
 	var pro = 0;
 	var und = 0;
-	
 	
 	while (!strm.AtEndOfStream)
 	{
