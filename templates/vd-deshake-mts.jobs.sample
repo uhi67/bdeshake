@@ -1,4 +1,4 @@
-// VirtualDub script - deshaker - default
+// VirtualDub script - deshaker - mts
 
 declare deshaker;
 VirtualDub.Open(U"%filename1%","",0);

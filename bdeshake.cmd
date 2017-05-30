@@ -13,14 +13,14 @@ exit
 :: =================================================================================================
 # Batch deshaker #
 
-Deshakes one file or files of a directory to the same directory with .ds.mp4 name extension
+Deshakes (stabilizes) one video file or files of a directory to the same directory with .ds.mp4 name extension
 
-## Prerequistics ##
+## Prerequisites ##
 
 0. Windows 7 or newer
-1. install virtualdub -- see 
+1. install virtualdub -- see http://virtualdub.org/
 2. install deshaker plugin -- see http://www.guthspot.se/video/deshaker.htm
-3. install ffmpeg
+3. install ffmpeg -- see http://ffmpeg.org/
 4. install x264 external encoder named 'x264' with params '-B 18000 --profile baseline --preset slow --ref 5 --level 4.1 --keyint 24 --tune film --bluray-compat --stitchable --b-pyramid strict --demuxer raw --input-csp i420 --input-res %(width)x%(height) --fps %(fpsnum)/%(fpsden) -o "%(tempvideofile)" -' output '%(outputname).264'
 5. install neroAacEnc external encoder named 'neroaac' with params '-q 0.80 -ignorelength -if - -of "%(tempaudiofile)"', output '%(outputname).m4a'
 6. create mp4 external encoder set in virtualdub named 'MP4' containing 
@@ -29,10 +29,10 @@ Deshakes one file or files of a directory to the same directory with .ds.mp4 nam
 ## Installation ##
 
 1. Save this single file to anywhere in your windows machine.
-2. Edit global setting below:
-	(a) ffmpegbase is the path to the installed ffmpeg
-	(b) commandbase is the path to the installed virtualdub
-	(c) change any other settings if you want
+2. Edit global settings below:
+	* ffmpegbase is the path to the installed ffmpeg
+	* commandbase is the path to the installed virtualdub
+	* change any other settings if you want
 3. Review extensions and template files (if you know virtualdub scripting)
 
 If template directory does not exists, it will be created and it's content initialized from this 
@@ -48,25 +48,28 @@ in the template directory, the modified files will be used.
 Skips existing output files, unless -o switch specified.
 creates %filename%.ds.jobs temp file
 Detect interlaced files into %int%
+
 uses jobs template files in priority order:
 - %inputpath%\vd-deshake-%ext%-%int%.jobs.sample
 - %inputpath%\vd-deshake-%ext%.jobs.sample
-- samples\vd-deshake-%ext%-%int%.jobs.sample
-- samples\vd-deshake-%ext%.jobs.sample
-- samples\vd-deshake-default.jobs.sample
+- templates\vd-deshake-%ext%-%int%.jobs.sample
+- templates\vd-deshake-%ext%.jobs.sample
+- templates\vd-deshake-default.jobs.sample
+If templates directory is missing, it will be initialized from embedded template files.
+See virtualdub documentation for jobs file format, and deshaker documentation for deshaker parameters.
+
 Creates %inputpath%\%filename%.ds.log file
 Runs "...\VirtualDub\Veedub64.exe" /s %filename%.ds.jobs /x
 Returns only when finished
 Default removes all temp files created.
 
-If you close the termianl window before the end of processing all files, the ongoing processes will 
-continue and close when finished, but no more new process will start.
-
+If you close the terminal window before the end of processing all files, the ongoing processes will 
+continue and close when completed, but no more new process will start.
 If you close manually the ongoing processes, the result may be some damaged output file.
 
 ## Options ## 
 
--t	do not delete temp files (default will be deleted at end)
+-t	do not delete temp files (default will be deleted after the last file completed)
 -o	overwrite existing files (default skip)
 -p <#>	number of paralel processes (default 4)
 -s <index> <value>	user settings of plugin. See doc at http://www.guthspot.se/video/deshaker.htm
@@ -76,10 +79,11 @@ If you close manually the ongoing processes, the result may be some damaged outp
 - PAL Wide is converting to 4:3
 
 ## External references ##
-[http://virtualdub.org/]
-[http://www.virtualdub.org/docs/vdscript.txt]
-[http://www.guthspot.se/video/deshaker.htm]
-[http://forum.videohelp.com/threads/367446-Virtualdub-External-Encoder-feature]
+- [[http://virtualdub.org/]]
+- [[http://ffmpeg.org/]]
+- [[http://www.virtualdub.org/docs/vdscript.txt]]
+- [[http://www.guthspot.se/video/deshaker.htm]]
+- [[http://forum.videohelp.com/threads/367446-Virtualdub-External-Encoder-feature]]
 
 :: =================================================================================================
 :: jscript part */ = 0;
@@ -88,7 +92,7 @@ If you close manually the ongoing processes, the result may be some damaged outp
 // Set path of ffmpeg, eg. "c:\\progs\\Video Encoders\\FFmpeg\\64-bit"
 var ffmpegbase = "c:\\progs\\Video Encoders\\FFmpeg\\64-bit";	// directory of "ffmpeg.exe" and "is-interlaced.js" filter script
 var scriptdir = scriptdir = WScript.ScriptFullName.substring(0,WScript.ScriptFullName.lastIndexOf(WScript.ScriptName)-1);
-var templatefolder = scriptdir + "\\templates";
+var templatefolder = scriptdir + "\\templates"; // Set to empty to disable using template folder.
 var commandbase = "c:\\progs\\VirtualDub\\Veedub64.exe /s ";
 var outputextension = 'mp4';
 var ps = 4; // Number of paralel processes. (Eg. in a 12 core AMD system the best was 4)
@@ -161,10 +165,6 @@ for(var i=1;i<WScript.Arguments.length;i++) {
 		ps = parseInt(WScript.Arguments.Item(i));
 	}
 	if(WScript.Arguments.Item(i)=='-s') {
-		/*
-		if(++i >= WScript.Arguments.length) break;
-		var index = parseInt(WScript.Arguments.Item(i));
-		*/
 		if(++i >= WScript.Arguments.length) break;
 		var values = parseInt(WScript.Arguments.Item(i));
 		var valuelist = values.split(',');
@@ -175,17 +175,19 @@ for(var i=1;i<WScript.Arguments.length;i++) {
 	}
 }
 
-if(fdebug) WScript.Echo("Using template directory " + templatefolder);
+if(fdebug && templatefolder!='') WScript.Echo("Using template directory " + templatefolder);
 
 // Check and initialize template directory
-if(!fso.FolderExists(templatefolder)) {
+if(templatefolder!='' && !fso.FolderExists(templatefolder)) {
 	if(!fso.FolderExists(fso.getParentFolderName(templatefolder))) {
 		WScript.Echo("Configuration error: Invalid templatefolder: parent does not exists: "+templatefolder);
 		WScript.Quit(4);
 	}
-	fso.CreateFolder(templatefolder);
+	var tf = fso.CreateFolder(templatefolder);
 	// initialize with embedded files
-	
+	var scriptfile = fso.GetFile(filename);
+    var ts = scriptfile.OpenAsTextStream(ForReading);
+	// TODO: ...
 }
 
 // Detect directory
@@ -569,7 +571,6 @@ VirtualDub.audio.SetVolume();
 VirtualDub.audio.SetCompression();
 VirtualDub.audio.EnableFilterGraph(0);
 VirtualDub.video.SetInputFormat(0);
-//VirtualDub.video.SetOutputFormat(7);
 VirtualDub.video.SetMode(3);
 VirtualDub.video.SetSmartRendering(0);
 VirtualDub.video.SetPreserveEmptyFrames(0);
@@ -585,7 +586,6 @@ VirtualDub.video.SetRange();
 // -- $reloadstop --
 VirtualDub.RunNullVideoPass();
 VirtualDub.Close();
-
 VirtualDub.Open(U"%filename1%","",0);
 VirtualDub.audio.SetSource(1);
 VirtualDub.audio.SetMode(0);
@@ -616,13 +616,243 @@ VirtualDub.Close();
 EOF--*/
 
 /* @data vd-deshake-mts.jobs.sample EOF--
+// VirtualDub script - deshaker - mts
+declare deshaker;
+VirtualDub.Open(U"%filename1%","",0);
+VirtualDub.audio.SetSource(1);
+VirtualDub.audio.SetMode(0);
+VirtualDub.audio.SetInterleave(1,500,1,0,0);
+VirtualDub.audio.SetClipMode(1,1);
+VirtualDub.audio.SetEditMode(1);
+VirtualDub.audio.SetConversion(0,0,0,0,0);
+VirtualDub.audio.SetVolume();
+VirtualDub.audio.SetCompression();
+VirtualDub.audio.EnableFilterGraph(0);
+VirtualDub.video.SetInputFormat(0);
+VirtualDub.video.SetMode(3);
+VirtualDub.video.SetSmartRendering(0);
+VirtualDub.video.SetPreserveEmptyFrames(0);
+VirtualDub.video.SetFrameRate2(0,0,1);
+VirtualDub.video.SetIVTC(0, 0, 0, 0);
+VirtualDub.video.SetCompression();
+VirtualDub.video.filters.Clear();
+VirtualDub.video.filters.Add("deinterlace");
+VirtualDub.video.filters.instance[0].Config(0,1,0);
+deshaker = VirtualDub.video.filters.Add("Deshaker v3.1");
+VirtualDub.video.filters.instance[deshaker].Config("19|1|30|4|1|0|1|0|640|480|0|1|1500|2000|1000|2000|4|1|1|2|8|30|300|4|%filename0%.ds.log|0|1|200|200|100|100|0|0|0|0|0|0|0|1|25|25|5|5|1|1|30|30|0|50|0|0|1|1|1|10|1000|1|88|1|1|20|5000|80|20|0|0|ff00ff");
+VirtualDub.audio.filters.Clear();
+VirtualDub.subset.Delete();
+VirtualDub.video.SetRange();
+// -- $reloadstop --
+VirtualDub.RunNullVideoPass();
+VirtualDub.Close();
+VirtualDub.Open(U"%filename1%","",0);
+VirtualDub.audio.SetSource(1);
+VirtualDub.audio.SetMode(0);
+VirtualDub.audio.SetInterleave(1,500,1,0,0);
+VirtualDub.audio.SetClipMode(1,1);
+VirtualDub.audio.SetEditMode(1);
+VirtualDub.audio.SetConversion(0,0,0,0,0);
+VirtualDub.audio.SetVolume();
+VirtualDub.audio.SetCompression();
+VirtualDub.audio.EnableFilterGraph(0);
+VirtualDub.video.SetInputFormat(0);
+VirtualDub.video.SetOutputFormat(7);
+VirtualDub.video.SetMode(3);
+VirtualDub.video.SetSmartRendering(0);
+VirtualDub.video.SetPreserveEmptyFrames(0);
+VirtualDub.video.SetFrameRate2(0,0,1);
+VirtualDub.video.SetIVTC(0, 0, 0, 0);
+VirtualDub.video.SetCompression();
+VirtualDub.video.filters.Clear();
+VirtualDub.video.filters.Add("deinterlace");
+VirtualDub.video.filters.instance[0].Config(0,1,0);
+deshaker = VirtualDub.video.filters.Add("Deshaker v3.1");
+VirtualDub.video.filters.instance[deshaker].Config("19|2|30|4|1|0|1|0|640|480|0|1|1500|2000|1000|2000|4|1|1|2|8|30|300|4|%filename0%.ds.log|0|1|200|200|100|100|0|0|0|0|0|0|0|1|25|25|5|5|1|1|30|30|0|50|0|0|1|1|1|10|1000|1|88|1|1|20|5000|80|20|0|0|ff00ff");
+VirtualDub.audio.filters.Clear();
+VirtualDub.subset.Delete();
+VirtualDub.video.SetRange();
+// -- $reloadstop --
+VirtualDub.ExportViaEncoderSet(U"%filename2%", "MP4 (video/audio)");
+VirtualDub.Close();
 EOF--*/
 
 /* @data vd-deshake-mts-bff.jobs.sample EOF--
+// VirtualDub script - deshaker - mts-bff
+declare deshaker;
+VirtualDub.Open(U"%filename1%","",0);
+VirtualDub.audio.SetSource(1);
+VirtualDub.audio.SetMode(0);
+VirtualDub.audio.SetInterleave(1,500,1,0,0);
+VirtualDub.audio.SetClipMode(1,1);
+VirtualDub.audio.SetEditMode(1);
+VirtualDub.audio.SetConversion(0,0,0,0,0);
+VirtualDub.audio.SetVolume();
+VirtualDub.audio.SetCompression();
+VirtualDub.audio.EnableFilterGraph(0);
+VirtualDub.video.SetInputFormat(0);
+//VirtualDub.video.SetOutputFormat(7);
+VirtualDub.video.SetMode(3);
+VirtualDub.video.SetSmartRendering(0);
+VirtualDub.video.SetPreserveEmptyFrames(0);
+VirtualDub.video.SetFrameRate2(0,0,1);
+VirtualDub.video.SetIVTC(0, 0, 0, 0);
+VirtualDub.video.SetCompression();
+VirtualDub.video.filters.Clear();
+VirtualDub.video.filters.Add("deinterlace");
+VirtualDub.video.filters.instance[0].Config(0,0,0);
+deshaker = VirtualDub.video.filters.Add("Deshaker v3.1");
+VirtualDub.video.filters.instance[deshaker].Config("19|1|30|4|1|0|1|0|640|480|0|1|1500|2000|1000|2000|4|1|1|2|8|30|300|4|%filename0%.ds.log|0|1|200|200|100|100|0|0|0|0|0|0|0|1|25|25|5|5|1|1|30|30|0|50|0|0|1|1|1|10|1000|1|88|1|1|20|5000|80|20|0|0|ff00ff");
+VirtualDub.audio.filters.Clear();
+VirtualDub.subset.Delete();
+VirtualDub.video.SetRange();
+// -- $reloadstop --
+VirtualDub.RunNullVideoPass();
+VirtualDub.Close();
+VirtualDub.Open(U"%filename1%","",0);
+VirtualDub.audio.SetSource(1);
+VirtualDub.audio.SetMode(0);
+VirtualDub.audio.SetInterleave(1,500,1,0,0);
+VirtualDub.audio.SetClipMode(1,1);
+VirtualDub.audio.SetEditMode(1);
+VirtualDub.audio.SetConversion(0,0,0,0,0);
+VirtualDub.audio.SetVolume();
+VirtualDub.audio.SetCompression();
+VirtualDub.audio.EnableFilterGraph(0);
+VirtualDub.video.SetInputFormat(0);
+VirtualDub.video.SetOutputFormat(7);
+VirtualDub.video.SetMode(3);
+VirtualDub.video.SetSmartRendering(0);
+VirtualDub.video.SetPreserveEmptyFrames(0);
+VirtualDub.video.SetFrameRate2(0,0,1);
+VirtualDub.video.SetIVTC(0, 0, 0, 0);
+VirtualDub.video.SetCompression();
+VirtualDub.video.filters.Clear();
+VirtualDub.video.filters.Add("deinterlace");
+VirtualDub.video.filters.instance[0].Config(0,0,0);
+deshaker = VirtualDub.video.filters.Add("Deshaker v3.1");
+VirtualDub.video.filters.instance[deshaker].Config("19|2|30|4|1|0|1|0|640|480|0|1|1500|2000|1000|2000|4|1|1|2|8|30|300|4|%filename0%.ds.log|0|1|200|200|100|100|0|0|0|0|0|0|0|1|25|25|5|5|1|1|30|30|0|50|0|0|1|1|1|10|1000|1|88|1|1|20|5000|80|20|0|0|ff00ff");
+VirtualDub.audio.filters.Clear();
+VirtualDub.subset.Delete();
+VirtualDub.video.SetRange();
+// -- $reloadstop --
+VirtualDub.ExportViaEncoderSet(U"%filename2%", "MP4 (video/audio)");
+VirtualDub.Close();
 EOF--*/
 
 /* @data vd-deshake-mts-pro.jobs.sample EOF--
+// VirtualDub script - deshaker - mts-pro
+
+declare deshaker;
+VirtualDub.Open(U"%filename1%","",0);
+VirtualDub.audio.SetSource(1);
+VirtualDub.audio.SetMode(0);
+VirtualDub.audio.SetInterleave(1,500,1,0,0);
+VirtualDub.audio.SetClipMode(1,1);
+VirtualDub.audio.SetEditMode(1);
+VirtualDub.audio.SetConversion(0,0,0,0,0);
+VirtualDub.audio.SetVolume();
+VirtualDub.audio.SetCompression();
+VirtualDub.audio.EnableFilterGraph(0);
+VirtualDub.video.SetInputFormat(0);
+VirtualDub.video.SetMode(3);
+VirtualDub.video.SetSmartRendering(0);
+VirtualDub.video.SetPreserveEmptyFrames(0);
+VirtualDub.video.SetFrameRate2(0,0,1);
+VirtualDub.video.SetIVTC(0, 0, 0, 0);
+VirtualDub.video.SetCompression();
+VirtualDub.video.filters.Clear();
+deshaker = VirtualDub.video.filters.Add("Deshaker v3.1");
+VirtualDub.video.filters.instance[deshaker].Config("19|1|30|4|1|0|1|0|640|480|0|1|1500|2000|1000|2000|4|1|1|2|8|30|300|4|%filename0%.ds.log|0|1|200|200|100|100|0|0|0|0|0|0|0|1|25|25|5|5|1|1|30|30|0|50|0|0|1|1|1|10|1000|1|88|1|1|20|5000|80|20|0|0|ff00ff");
+VirtualDub.audio.filters.Clear();
+VirtualDub.subset.Delete();
+VirtualDub.video.SetRange();
+// -- $reloadstop --
+VirtualDub.RunNullVideoPass();
+VirtualDub.Close();
+VirtualDub.Open(U"%filename1%","",0);
+VirtualDub.audio.SetSource(1);
+VirtualDub.audio.SetMode(0);
+VirtualDub.audio.SetInterleave(1,500,1,0,0);
+VirtualDub.audio.SetClipMode(1,1);
+VirtualDub.audio.SetEditMode(1);
+VirtualDub.audio.SetConversion(0,0,0,0,0);
+VirtualDub.audio.SetVolume();
+VirtualDub.audio.SetCompression();
+VirtualDub.audio.EnableFilterGraph(0);
+VirtualDub.video.SetInputFormat(0);
+VirtualDub.video.SetOutputFormat(7);
+VirtualDub.video.SetMode(3);
+VirtualDub.video.SetSmartRendering(0);
+VirtualDub.video.SetPreserveEmptyFrames(0);
+VirtualDub.video.SetFrameRate2(0,0,1);
+VirtualDub.video.SetIVTC(0, 0, 0, 0);
+VirtualDub.video.SetCompression();
+VirtualDub.video.filters.Clear();
+deshaker = VirtualDub.video.filters.Add("Deshaker v3.1");
+VirtualDub.video.filters.instance[deshaker].Config("19|2|30|4|1|0|1|0|640|480|0|1|1500|2000|1000|2000|4|1|1|2|8|30|300|4|%filename0%.ds.log|0|1|200|200|100|100|0|0|0|0|0|0|0|1|25|25|5|5|1|1|30|30|0|50|0|0|1|1|1|10|1000|1|88|1|1|20|5000|80|20|0|0|ff00ff");
+VirtualDub.audio.filters.Clear();
+VirtualDub.subset.Delete();
+VirtualDub.video.SetRange();
+// -- $reloadstop --
+VirtualDub.ExportViaEncoderSet(U"%filename2%", "MP4 (video/audio)");
+VirtualDub.Close();
 EOF--*/
 
 /* @data vd-deshake-mts-tff.jobs.sample EOF--
+// VirtualDub script - deshaker - mts-tff
+declare deshaker;
+VirtualDub.Open(U"%filename1%","",0);
+VirtualDub.audio.SetSource(1);
+VirtualDub.audio.SetMode(0);
+VirtualDub.audio.SetInterleave(1,500,1,0,0);
+VirtualDub.audio.SetClipMode(1,1);
+VirtualDub.audio.SetEditMode(1);
+VirtualDub.audio.SetConversion(0,0,0,0,0);
+VirtualDub.audio.SetVolume();
+VirtualDub.audio.SetCompression();
+VirtualDub.audio.EnableFilterGraph(0);
+VirtualDub.video.SetInputFormat(0);
+VirtualDub.video.SetMode(3);
+VirtualDub.video.SetSmartRendering(0);
+VirtualDub.video.SetPreserveEmptyFrames(0);
+VirtualDub.video.SetFrameRate2(0,0,1);
+VirtualDub.video.SetIVTC(0, 0, 0, 0);
+VirtualDub.video.SetCompression();
+VirtualDub.video.filters.Clear();
+deshaker = VirtualDub.video.filters.Add("Deshaker v3.1");
+VirtualDub.video.filters.instance[deshaker].Config("19|1|30|4|1|0|1|0|640|480|1|2|1500|2500|1000|1000|4|1|1|2|8|30|300|4|%filename0%.ds.log|0|0|100|100|40|80|0|0|0|0|0|1|1|1|15|20|5|5|1|1|10|10|0|15|0|0|1|1|1|10|1000|1|88|1|0|20|5000|100|20|1|0|ff00ff");
+VirtualDub.audio.filters.Clear();
+VirtualDub.subset.Delete();
+VirtualDub.video.SetRange();
+// -- $reloadstop --
+VirtualDub.RunNullVideoPass();
+VirtualDub.Close();
+VirtualDub.Open(U"%filename1%","",0);
+VirtualDub.audio.SetSource(1);
+VirtualDub.audio.SetMode(0);
+VirtualDub.audio.SetInterleave(1,500,1,0,0);
+VirtualDub.audio.SetClipMode(1,1);
+VirtualDub.audio.SetEditMode(1);
+VirtualDub.audio.SetConversion(0,0,0,0,0);
+VirtualDub.audio.SetVolume();
+VirtualDub.audio.SetCompression();
+VirtualDub.audio.EnableFilterGraph(0);
+VirtualDub.video.SetInputFormat(0);
+VirtualDub.video.SetOutputFormat(7);
+VirtualDub.video.SetMode(3);
+VirtualDub.video.SetSmartRendering(0);
+VirtualDub.video.SetPreserveEmptyFrames(0);
+VirtualDub.video.SetFrameRate2(0,0,1);
+VirtualDub.video.SetIVTC(0, 0, 0, 0);
+VirtualDub.video.SetCompression();
+VirtualDub.video.filters.Clear();
+deshaker = VirtualDub.video.filters.Add("Deshaker v3.1");
+VirtualDub.video.filters.instance[deshaker].Config("19|2|30|4|1|0|1|0|640|480|1|2|1500|2500|1000|1000|4|1|1|2|8|30|300|4|%filename0%.ds.log|0|0|100|100|40|80|0|0|0|0|0|1|1|1|15|20|5|5|1|1|10|10|0|15|0|0|1|1|1|10|1000|1|88|1|0|20|5000|100|20|1|0|ff00ff");
+VirtualDub.audio.filters.Clear();
+VirtualDub.subset.Delete();
+VirtualDub.video.SetRange();
+// -- $reloadstop --
+VirtualDub.ExportViaEncoderSet(U"%filename2%", "MP4 (video/audio)");
+VirtualDub.Close();
 EOF--*/
